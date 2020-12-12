@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Squareboat-Assignment</string>
+    <string name="search">Search</string>
+    <string name="search_icon_hint">Search an icon</string>
+</resources>
