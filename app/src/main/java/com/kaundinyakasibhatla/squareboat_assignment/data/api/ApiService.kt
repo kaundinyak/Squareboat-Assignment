@@ -7,10 +7,10 @@ import retrofit2.http.Query
 
 interface ApiService {
 
-    @GET("iconsets/180041/icons?count=30")
-    suspend fun getIcons(): Response<IconsModel>
+    @GET("iconsets/180041/icons")
+    suspend fun getIcons(@Query("count") count: Int,@Query("offset") offset: Int): Response<IconsModel>
 
     @GET("icons/search")
-    suspend fun getSearchIcons(@Query("query") query: String?, @Query("count") count: Int): Response<IconsModel>
+    suspend fun getSearchIcons(@Query("query") query: String?, @Query("count") count: Int,@Query("offset") offset: Int): Response<IconsModel>
 
 }

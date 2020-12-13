@@ -15,19 +15,18 @@ import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.kaundinyakasibhatla.squareboat_assignment.R
 import com.kaundinyakasibhatla.squareboat_assignment.data.model.Format
 import com.kaundinyakasibhatla.squareboat_assignment.databinding.ActivityMainBinding
 import com.kaundinyakasibhatla.squareboat_assignment.ui.main.adapter.MainAdapter
 import com.kaundinyakasibhatla.squareboat_assignment.ui.main.viewmodel.MainActivityViewModel
+import com.kaundinyakasibhatla.squareboat_assignment.ui.main.helper.EndlessRecyclerViewScrollListener
 import com.kaundinyakasibhatla.squareboat_assignment.utils.Status
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
 
 @AndroidEntryPoint
@@ -37,15 +36,24 @@ class MainActivity : AppCompatActivity() {
     private val mainActivityViewModel: MainActivityViewModel by viewModels()
     private lateinit var adapter: MainAdapter
     private var downloadUrl: String? = null
+    private val count = 20
+    private var offset = 1
+
 
     @FlowPreview
     @ExperimentalCoroutinesApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
-
         setupUI()
         setupObserver()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (mainActivityViewModel.icons.value?.data.isNullOrEmpty()) {
+            mainActivityViewModel.fetchIcons(0)
+        }
     }
 
 
@@ -74,9 +82,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        binding.recyclerView.layoutManager = GridLayoutManager(this, 2)
+        val llm = GridLayoutManager(this, 2)
+        llm.orientation = RecyclerView.VERTICAL
+        binding.recyclerView.layoutManager = llm
         adapter = MainAdapter(arrayListOf(), ::showDialog)
         binding.recyclerView.adapter = adapter
+        binding.recyclerView.addOnScrollListener(object : EndlessRecyclerViewScrollListener(llm) {
+            override fun onLoadMore(page: Int, totalItemsCount: Int) {
+                mainActivityViewModel.fetchIcons(totalItemsCount)
+            }
+        })
 
     }
 
@@ -86,10 +101,10 @@ class MainActivity : AppCompatActivity() {
         builder.setMessage("Do you want to download the selected icon?")
         builder.setPositiveButton("Download") { dialog, which ->
             downloadUrl = url
-            if(checkStoragePermission()){
+            if (checkStoragePermission()) {
                 mainActivityViewModel.downloadImage(url)
 
-            }else{
+            } else {
                 requestStoragePermissions()
             }
         }
@@ -148,8 +163,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun renderList(icons: List<Format>) {
-        adapter.clearData(icons)
-        adapter.addData(icons)
+        adapter.setData(icons)
         adapter.notifyDataSetChanged()
     }
 
@@ -171,7 +185,9 @@ class MainActivity : AppCompatActivity() {
         this.let {
             ActivityCompat.requestPermissions(
                 it,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), WRITE_EXTERNAL_STORAGE_REQUEST_CODE)
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                WRITE_EXTERNAL_STORAGE_REQUEST_CODE
+            )
         }
     }
 
@@ -180,12 +196,16 @@ class MainActivity : AppCompatActivity() {
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
-        when(requestCode) {
+        when (requestCode) {
             WRITE_EXTERNAL_STORAGE_REQUEST_CODE -> {
                 if ((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
                     downloadUrl?.let { mainActivityViewModel.downloadImage(it) }
                 } else {
-                    Snackbar.make(binding.layoutMain, "Storage permission is required to download", Snackbar.LENGTH_SHORT).show()
+                    Snackbar.make(
+                        binding.layoutMain,
+                        "Storage permission is required to download",
+                        Snackbar.LENGTH_SHORT
+                    ).show()
                 }
                 return
             }

@@ -8,6 +8,6 @@ import javax.inject.Inject
 
 class ApiHelperImpl @Inject constructor(private val apiService: ApiService) : ApiHelper {
 
-    override suspend fun getIcons(): Response<IconsModel> = apiService.getIcons()
-    override suspend fun getSearchIcons(query: String, count:Int ): Response<IconsModel> = apiService.getSearchIcons(query, count)
+    override suspend fun getIcons(count:Int, offset:Int): Response<IconsModel> = apiService.getIcons(count,offset)
+    override suspend fun getSearchIcons(query: String, count:Int, offset:Int ): Response<IconsModel> = apiService.getSearchIcons(query, count, offset)
 }

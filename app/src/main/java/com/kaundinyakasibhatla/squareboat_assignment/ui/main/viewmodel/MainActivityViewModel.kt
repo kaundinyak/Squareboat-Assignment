@@ -2,7 +2,6 @@ package com.kaundinyakasibhatla.squareboat_assignment.ui.main.viewmodel
 
 import android.content.Context
 import android.os.Environment
-
 import android.util.Log
 import androidx.hilt.lifecycle.ViewModelInject
 import androidx.lifecycle.*
@@ -32,23 +31,29 @@ class MainActivityViewModel @ViewModelInject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel(), FetchListener {
 
-    private var fetchConfiguration: FetchConfiguration = FetchConfiguration.Builder(context)
-        .setDownloadConcurrentLimit(3)
-        .build()
-    var fetch: Fetch
     companion object {
         const val SEARCH_DELAY_MS = 300L
         const val MIN_QUERY_LENGTH = 3
     }
 
-    init {
+    private var fetchConfiguration: FetchConfiguration = FetchConfiguration.Builder(context)
+        .setDownloadConcurrentLimit(3)
+        .build()
+    var fetch: Fetch
 
+    init {
         fetch = Fetch.Impl.getInstance(fetchConfiguration)
         fetch.addListener(this)
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        fetch.removeListener(this)
+    }
+
     @ExperimentalCoroutinesApi
     internal val queryChannel = BroadcastChannel<String>(Channel.CONFLATED)
+    var searchOffset : Int = 0
 
     @FlowPreview
     @ExperimentalCoroutinesApi
@@ -58,29 +63,29 @@ class MainActivityViewModel @ViewModelInject constructor(
         .mapLatest {
             if (it.length >= MIN_QUERY_LENGTH) {
                 if (networkHelper.isNetworkConnected()) {
-                    mainRepository.getSearchIcons(it, 24).let { response ->
+
+                    val response = mainRepository.getSearchIcons(it, 20, searchOffset)
                         if (response.isSuccessful) {
                             response.body()?.let { iconsModel ->
 
-                                _icons.postValue(Resource.success((iconsModel.icons?.mapNotNull { icon ->
+                                val iconsList = iconsModel.icons?.mapNotNull { icon ->
                                     icon.raster_sizes?.firstOrNull { rasterSize ->
                                         rasterSize.size == 512
                                     }?.formats?.first()
-                                })))
+                                }
+                                _icons.postValue(Resource.success(iconsList!! + icons.value?.data!!))
+                                searchOffset += searchOffset
+
                             } ?: run {
-                                _icons.postValue(
-                                    Resource.error(
-                                        response.errorBody().toString(),
-                                        null
-                                    )
-                                )
+                                _icons.postValue(Resource.success(icons.value?.data))
+
                             }
 
                         } else {
-                            _icons.postValue(Resource.error(response.errorBody().toString(), null))
+                            _icons.postValue(Resource.success(icons.value?.data))
                         }
 
-                    }
+
                 } else {
                     _icons.postValue(Resource.error("No internet connection", null))
                 }
@@ -93,18 +98,48 @@ class MainActivityViewModel @ViewModelInject constructor(
     val searchResult = internalSearchResult.asLiveData()
     val downloadStarted = MutableLiveData(false)
     val downloadCompleted = MutableLiveData(false)
+
     private val _icons = MutableLiveData<Resource<List<Format>>>()
     val icons: LiveData<Resource<List<Format>>>
         get() = _icons
 
-    init {
-        fetchIcons()
+
+    fun fetchIcons(offset: Int) {
+        if (offset == 0) {
+            _icons.postValue(Resource.loading(emptyList()))
+        } else {
+            _icons.postValue(Resource.loading(icons.value?.data))
+        }
+        viewModelScope.launch {
+
+            if (networkHelper.isNetworkConnected()) {
+
+                val response = mainRepository.getIcons(20, offset)
+                if (response.isSuccessful) {
+                    response.body()?.let {
+
+                        val iconsList = it.icons?.mapNotNull { icon ->
+                            icon.raster_sizes?.firstOrNull { rasterSize ->
+                                rasterSize.size == 512
+                            }?.formats?.first()
+                        }
+                        _icons.postValue(Resource.success(iconsList!! + icons.value?.data!!))
+
+
+                    } ?: run {
+                        _icons.postValue(Resource.error(response.errorBody().toString(), null))
+                    }
+
+                } else {
+                    _icons.postValue(Resource.error(response.errorBody().toString(), null))
+                }
+
+            } else _icons.postValue(Resource.error("No internet connection", null))
+        }
     }
 
-
-
     fun downloadImage(url: String) {
-        val directory = Environment.getExternalStorageDirectory().absolutePath+"/Images"
+        val directory = Environment.getExternalStorageDirectory().absolutePath + "/Images"
         val name = url.split('/').last()
         val file = File(directory, name)
         val request = Request(url, file.absolutePath)
@@ -116,31 +151,6 @@ class MainActivityViewModel @ViewModelInject constructor(
             { updatedRequest: Request? -> Log.e("adsf", "asdfas") }
         ) { error: Error? -> Log.e("adsf", "asdfas") }
 
-    }
-
-    private fun fetchIcons() {
-        viewModelScope.launch {
-            _icons.postValue(Resource.loading(null))
-            if (networkHelper.isNetworkConnected()) {
-                mainRepository.getIcons().let { response ->
-                    if (response.isSuccessful) {
-                        response.body()?.let {
-
-                            _icons.postValue(Resource.success((it.icons?.mapNotNull { icon ->
-                                icon.raster_sizes?.firstOrNull { rasterSize ->
-                                    rasterSize.size == 512
-                                }?.formats?.first()
-                            })))
-                        } ?: run {
-                            _icons.postValue(Resource.error(response.errorBody().toString(), null))
-                        }
-
-                    } else {
-                        _icons.postValue(Resource.error(response.errorBody().toString(), null))
-                    }
-                }
-            } else _icons.postValue(Resource.error("No internet connection", null))
-        }
     }
 
     override fun onAdded(download: Download) {
@@ -170,6 +180,7 @@ class MainActivityViewModel @ViewModelInject constructor(
 
     override fun onError(download: Download, error: Error, throwable: Throwable?) {
         Log.e("FETCH", "onError")
+        downloadCompleted.value = true
     }
 
     override fun onPaused(download: Download) {

@@ -6,6 +6,6 @@ import com.kaundinyakasibhatla.squareboat_assignment.data.model.Results
 import retrofit2.Response
 
 interface ApiHelper {
-    suspend fun  getIcons(): Response<IconsModel>
-    suspend fun getSearchIcons(query:String,count:Int): Response<IconsModel>
+    suspend fun  getIcons(count:Int,offset:Int): Response<IconsModel>
+    suspend fun getSearchIcons(query:String,count:Int, offset:Int): Response<IconsModel>
 }

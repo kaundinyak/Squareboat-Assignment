@@ -3,17 +3,19 @@ package com.kaundinyakasibhatla.squareboat_assignment.ui.main.adapter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.kaundinyakasibhatla.squareboat_assignment.R
+import com.kaundinyakasibhatla.squareboat_assignment.base.BaseRecyclerViewAdapter
 import com.kaundinyakasibhatla.squareboat_assignment.data.model.Format
-import com.kaundinyakasibhatla.squareboat_assignment.data.model.Icon
+import com.kaundinyakasibhatla.squareboat_assignment.ui.main.helper.IconDiffCallback
 import kotlinx.android.synthetic.main.item_layout.view.*
 
 class MainAdapter(
-    private val icons: ArrayList<Format>,
+    private val icons: List<Format>,
     private val listener:(String)->Unit,
-) : RecyclerView.Adapter<MainAdapter.DataViewHolder>() {
+) : BaseRecyclerViewAdapter<Format,MainAdapter.DataViewHolder>(icons.toMutableList()) {
 
     class DataViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
@@ -22,7 +24,6 @@ class MainAdapter(
             Glide.with(itemView.imageViewIcon.context)
                 .load(icon.preview_url)
                 .into(itemView.imageViewIcon)
-
 
         }
     }
@@ -35,21 +36,22 @@ class MainAdapter(
             )
         )
 
-    override fun getItemCount(): Int = icons.size
 
     override fun onBindViewHolder(holder: DataViewHolder, position: Int){
-        holder.bind(icons[position])
+        holder.bind(mList[position])
         holder.itemView.setOnClickListener {
-            listener(icons[position].preview_url!!)
+            listener(mList[position].preview_url!!)
         }
 
     }
 
-    fun addData(list: List<Format>) {
-        icons.addAll(list)
+    override fun setData(list: List<Format>) {
+
+        val diffCallback = IconDiffCallback(this.mList, list)
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
+        mList.clear()
+        mList.addAll(list)
+        diffResult.dispatchUpdatesTo(this)
     }
 
-    fun clearData(list: List<Format>) {
-        icons.clear()
-    }
 }

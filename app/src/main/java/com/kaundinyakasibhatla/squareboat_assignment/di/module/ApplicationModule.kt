@@ -28,36 +28,6 @@ class ApplicationModule {
     @Provides
     fun provideBaseUrl() = BuildConfig.BASE_URL
 
-    /*@Provides
-    @Singleton
-    fun provideOkHttpClient() = if (BuildConfig.DEBUG) {
-        val loggingInterceptor = HttpLoggingInterceptor()
-        loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY)
-        OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .addInterceptor(object : Interceptor {
-                @Throws(IOException::class)
-                override fun intercept(chain: Interceptor.Chain): Response {
-                    val request: Request =
-                        chain.request().newBuilder().addHeader("Authorization", "Bearer ${BuildConfig.client_secret}").build()
-                    return chain.proceed(request)
-                }
-            })
-            .build()
-    } else {
-        OkHttpClient
-            .Builder()
-            .addInterceptor(object : Interceptor {
-                @Throws(IOException::class)
-                override fun intercept(chain: Interceptor.Chain): Response {
-                    val request: Request =
-                        chain.request().newBuilder().addHeader("Authorization", "Bearer ${BuildConfig.client_secret}").build()
-                    return chain.proceed(request)
-                }
-            })
-            .build()
-    }*/
-
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
